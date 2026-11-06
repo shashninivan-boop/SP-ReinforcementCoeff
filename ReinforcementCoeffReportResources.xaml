@@ -138,7 +138,6 @@
   </Style>
 
   <Style x:Key="CopyableWrapCellTextBoxStyle" TargetType="TextBox" BasedOn="{StaticResource CopyableCellTextBoxStyle}">
-    <Setter Property="Height" Value="Auto"/>
     <Setter Property="TextWrapping" Value="Wrap"/>
     <Setter Property="AcceptsReturn" Value="True"/>
     <Setter Property="VerticalContentAlignment" Value="Top"/>

@@ -54,13 +54,8 @@ namespace SP_Addin.ReinforcementCoeff
                     return;
                 }
 
-                var snapshot = new CalculationSnapshot(uiApp.Application, doc);
-                try
-                {
-                    result = new ReinforcementCoeffService().Run(doc, Context);
-                    result.Snapshot = snapshot;
-                }
-                catch { snapshot.Dispose(); throw; }
+                var service = new ReinforcementCoeffService();
+                result = service.Run(doc, Context);
             }
             catch (Exception ex)
             {
@@ -82,7 +77,6 @@ namespace SP_Addin.ReinforcementCoeff
     {
         public UIApplication? UIApp { get; set; }
         public IReadOnlyList<ReinforcementCoeffParameterWrite>? PendingWrites { get; set; }
-        public CalculationSnapshot? Snapshot { get; set; }
         public Action<ReinforcementCoeffWriteResult?, string?>? OnCompleted { get; set; }
 
         public void Execute(UIApplication app)
@@ -121,9 +115,8 @@ namespace SP_Addin.ReinforcementCoeff
                     return;
                 }
 
-                if (Snapshot == null) throw new InvalidOperationException("Нет действующего расчёта.");
-                Snapshot.EnsureCurrent(doc);
-                result = new ReinforcementCoeffService().WriteParameters(doc, PendingWrites);
+                var service = new ReinforcementCoeffService();
+                result = service.WriteParameters(doc, PendingWrites);
             }
             catch (Exception ex)
             {
@@ -146,7 +139,6 @@ namespace SP_Addin.ReinforcementCoeff
     {
         public UIApplication? UIApp { get; set; }
         public List<long> ElementIdValues { get; set; } = new List<long>();
-        public CalculationSnapshot? Snapshot { get; set; }
 
         /// <summary>Id вида для активации перед выделением; null или &lt;= 0 — без смены вида.</summary>
         public long? TargetViewId { get; set; }
@@ -163,8 +155,6 @@ namespace SP_Addin.ReinforcementCoeff
                 }
 
                 Document doc = uiDoc.Document;
-                if (Snapshot == null) throw new InvalidOperationException("Нет действующего расчёта.");
-                Snapshot.EnsureCurrent(doc);
                 IList<ElementId> elementIds = ToExistingElementIds(doc, ElementIdValues);
                 if (elementIds.Count == 0)
                 {

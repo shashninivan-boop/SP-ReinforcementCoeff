@@ -1,8 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Collections.Specialized;
-using System.ComponentModel;
 using System.Globalization;
 using System.Linq;
 using System.Windows;
@@ -107,7 +105,7 @@ namespace SP_Addin.ReinforcementCoeff
     }
 
     /// <summary>ViewModel окна расчёта коэффициента армирования.</summary>
-    public partial class ReinforcementCoeffViewModel : ObservableObject, IDisposable
+    public partial class ReinforcementCoeffViewModel : ObservableObject
     {
         private readonly UIApplication _uiApp;
         private readonly ReinforcementCoeffRunHandler _runHandler;
@@ -118,72 +116,6 @@ namespace SP_Addin.ReinforcementCoeff
         private readonly ExternalEvent _selectElementsEvent;
         private readonly Dispatcher _uiDispatcher;
         private ReinforcementCoeffCompositionView? _compositionView;
-        private CalculationSnapshot? _snapshot;
-        private bool _disposed;
-        private int _settingsVersion;
-        private int _runSettingsVersion;
-
-        protected override void OnPropertyChanged(string? name = null)
-        {
-            base.OnPropertyChanged(name);
-            if (name == nameof(KitName) || name == nameof(GroupingParameterName) || name == nameof(GroupingMode))
-                OnSettingsChanged();
-        }
-
-        private void OnSettingsChanged()
-        {
-            _settingsVersion++;
-            if (_snapshot == null) return;
-            ReleaseSnapshot();
-            SetPendingWrites(Array.Empty<ReinforcementCoeffParameterWrite>());
-            _compositionView?.Close();
-            SummaryText = "Настройки изменены. Выполните расчёт заново.";
-        }
-
-        private void OnFilterChanged(object? sender, PropertyChangedEventArgs e) => OnSettingsChanged();
-        private void OnFiltersChanged(object? sender, NotifyCollectionChangedEventArgs e)
-        {
-            if (e.OldItems != null)
-                foreach (ReinforcementCoeffFilterConditionItem item in e.OldItems) item.PropertyChanged -= OnFilterChanged;
-            if (e.NewItems != null)
-                foreach (ReinforcementCoeffFilterConditionItem item in e.NewItems) item.PropertyChanged += OnFilterChanged;
-            OnSettingsChanged();
-        }
-
-        private void ReleaseSnapshot()
-        {
-            if (_snapshot != null)
-            {
-                _snapshot.Invalidated -= OnSnapshotInvalidated;
-                _snapshot.Dispose();
-                _snapshot = null;
-            }
-        }
-
-        private void OnSnapshotInvalidated()
-        {
-            _uiDispatcher.BeginInvoke(new Action(() =>
-            {
-                if (_disposed || _snapshot?.IsStale != true) return;
-                SetPendingWrites(Array.Empty<ReinforcementCoeffParameterWrite>());
-                if (!IsWriting)
-                    SummaryText = "Модель изменилась. Отчёт устарел: выполните расчёт заново.";
-                _compositionView?.Close();
-            }));
-        }
-
-        public void Dispose()
-        {
-            if (_disposed) return;
-            _disposed = true;
-            ReleaseSnapshot();
-            AdditionalFilters.CollectionChanged -= OnFiltersChanged;
-            foreach (var item in AdditionalFilters) item.PropertyChanged -= OnFilterChanged;
-            _compositionView?.Close();
-            _runEvent.Dispose();
-            _writeEvent.Dispose();
-            _selectElementsEvent.Dispose();
-        }
 
         private ReinforcementCoeffGroupingMode _groupingMode = ReinforcementCoeffGroupingMode.ByGroupingValue;
         private string _kitName = string.Empty;
@@ -337,7 +269,6 @@ namespace SP_Addin.ReinforcementCoeff
         {
             _uiApp = uiApp;
             _uiDispatcher = Dispatcher.CurrentDispatcher;
-            AdditionalFilters.CollectionChanged += OnFiltersChanged;
             _runHandler = new ReinforcementCoeffRunHandler();
             _writeHandler = new ReinforcementCoeffWriteHandler();
             _selectElementsHandler = new ReinforcementCoeffSelectElementsHandler();
@@ -472,7 +403,6 @@ namespace SP_Addin.ReinforcementCoeff
                 return;
             }
 
-            _selectElementsHandler.Snapshot = _snapshot;
             _selectElementsHandler.UIApp = _uiApp;
             _selectElementsHandler.ElementIdValues = elementIds.ToList();
             _selectElementsHandler.TargetViewId = targetViewId;
@@ -491,9 +421,6 @@ namespace SP_Addin.ReinforcementCoeff
                 return;
             }
 
-            ReleaseSnapshot();
-            _runSettingsVersion = _settingsVersion;
-            _compositionView?.Close();
             IsRunning = true;
             SummaryText = "Выполняется расчёт...";
             Groups.Clear();
@@ -510,12 +437,7 @@ namespace SP_Addin.ReinforcementCoeff
             _runHandler.OnCompleted = OnRunCompleted;
 
             // Расчёт без записи в параметры — только в обработчике ExternalEvent.
-            try
-            {
-                if (_runEvent.Raise() != ExternalEventRequest.Accepted)
-                    throw new InvalidOperationException("Revit не принял запрос расчёта. Повторите действие.");
-            }
-            catch (Exception ex) { IsRunning = false; SummaryText = ex.Message; }
+            _runEvent.Raise();
         }
 
         private void WriteValues()
@@ -534,15 +456,9 @@ namespace SP_Addin.ReinforcementCoeff
             SummaryText = "Выполняется запись значений в параметры...";
 
             _writeHandler.UIApp = _uiApp;
-            _writeHandler.PendingWrites = _pendingWrites.ToList();
-            _writeHandler.Snapshot = _snapshot;
+            _writeHandler.PendingWrites = _pendingWrites;
             _writeHandler.OnCompleted = OnWriteCompleted;
-            try
-            {
-                if (_writeEvent.Raise() != ExternalEventRequest.Accepted)
-                    throw new InvalidOperationException("Revit не принял запрос записи. Повторите действие.");
-            }
-            catch (Exception ex) { IsWriting = false; SummaryText = ex.Message; }
+            _writeEvent.Raise();
         }
 
         private void SetPendingWrites(IReadOnlyList<ReinforcementCoeffParameterWrite> writes)
@@ -557,30 +473,15 @@ namespace SP_Addin.ReinforcementCoeff
         {
             _uiDispatcher.BeginInvoke(new Action(() =>
             {
-                if (_disposed) { result?.Snapshot?.Dispose(); return; }
                 IsRunning = false;
 
                 if (!string.IsNullOrWhiteSpace(error))
                 {
-                    SummaryText = error!;
+                    SummaryText = error;
                     MessageBox.Show(error, "Средний расход арматуры", MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
 
-                if (_runSettingsVersion != _settingsVersion)
-                {
-                    result?.Snapshot?.Dispose();
-                    SummaryText = "Настройки изменились во время расчёта. Выполните расчёт заново.";
-                    return;
-                }
-                ReleaseSnapshot();
-                _snapshot = result?.Snapshot;
-                if (_snapshot != null) _snapshot.Invalidated += OnSnapshotInvalidated;
-                if (_snapshot?.IsStale == true)
-                {
-                    OnSnapshotInvalidated();
-                    return;
-                }
                 Groups.Clear();
                 if (result?.Groups != null)
                 {
@@ -599,12 +500,11 @@ namespace SP_Addin.ReinforcementCoeff
         {
             _uiDispatcher.BeginInvoke(new Action(() =>
             {
-                if (_disposed) return;
                 IsWriting = false;
 
                 if (!string.IsNullOrWhiteSpace(error))
                 {
-                    SummaryText = error!;
+                    SummaryText = error;
                     MessageBox.Show(error, "Средний расход арматуры", MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
@@ -614,8 +514,6 @@ namespace SP_Addin.ReinforcementCoeff
                     return;
                 }
 
-                SetPendingWrites(Array.Empty<ReinforcementCoeffParameterWrite>());
-                ReleaseSnapshot();
                 string calculationSummary = BuildSummaryTextFromGroups();
                 SummaryText = string.IsNullOrWhiteSpace(calculationSummary)
                     ? result.SummaryText
@@ -650,18 +548,16 @@ namespace SP_Addin.ReinforcementCoeff
 
         private static string BuildGroupsStatsText(IEnumerable<ReinforcementCoeffGroupResult> groups)
         {
-            var allGroups = groups.ToList();
-            var successful = allGroups.Where(g => g.IsSuccess).ToList();
-            int successCount = successful.Count;
-            double totalVolume = successful.Sum(g => g.ConcreteVolume);
-            double totalMass = successful.Sum(g => g.RebarMass);
-            double average = totalVolume > 0 ? totalMass / totalVolume : 0;
+            int successCount = groups.Count(g => g.IsSuccess);
+            double totalVolume = groups.Sum(g => g.ConcreteVolume);
+            double totalMass = groups.Sum(g => g.RebarMass);
 
             return string.Format(
                 CultureInfo.GetCultureInfo("ru-RU"),
-                "Успешно: {0}; с ошибками: {3}. По успешным группам: {1:0.###} м³; {2:0.###} кг; средний расход: {4}.",
-                successCount, totalVolume, totalMass, allGroups.Count - successCount,
-                totalVolume > 0 ? average.ToString("0.###", CultureInfo.GetCultureInfo("ru-RU")) + " кг/м³" : "—");
+                "Успешно: {0}. Суммарный объём: {1:0.###} м³; суммарная масса арматуры: {2:0.###}.",
+                successCount,
+                totalVolume,
+                totalMass);
         }
 
         /// <summary>

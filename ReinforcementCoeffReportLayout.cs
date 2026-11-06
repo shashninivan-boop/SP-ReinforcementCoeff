@@ -1,18 +1,7 @@
 using System.Windows;
-using System;
-using System.Globalization;
-using System.Windows.Data;
 
 namespace SP_Addin.ReinforcementCoeff
 {
-    public sealed class ReportWidthConverter : IValueConverter
-    {
-        public object Convert(object value, Type targetType, object parameter, CultureInfo culture) =>
-            value is double width && width > 0
-                ? Math.Max(ReinforcementCoeffReportLayout.TableMinWidth, width - 20) : ReinforcementCoeffReportLayout.TableMinWidth;
-        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => Binding.DoNothing;
-    }
-
     /// <summary>Ширины колонок таблицы отчёта «Средний расход арматуры».</summary>
     public static class ReinforcementCoeffReportLayout
     {

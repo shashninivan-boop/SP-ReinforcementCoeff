@@ -14,7 +14,6 @@ namespace SP_Addin.ReinforcementCoeff.Services
             Array.Empty<ReinforcementCoeffGroupResult>();
 
         public string SummaryText { get; set; } = string.Empty;
-        internal CalculationSnapshot? Snapshot { get; set; }
 
         /// <summary>Значения для записи в модель; заполняется после расчёта без транзакции.</summary>
         public IReadOnlyList<ReinforcementCoeffParameterWrite> PendingWrites { get; set; } =
@@ -115,48 +114,44 @@ namespace SP_Addin.ReinforcementCoeff.Services
                 };
             }
 
-            // Предварительная проверка и единая транзакция: частичный результат не сохраняется.
-            var targets = new List<(Parameter Parameter, ReinforcementCoeffParameterWrite Write)>();
-            foreach (ReinforcementCoeffParameterWrite write in writes)
-            {
-                Element? element = doc.GetElement(write.ElementId);
-                if (element == null || element.UniqueId != write.ElementUniqueId)
-                    throw new InvalidOperationException("Состав модели изменился. Выполните расчёт заново.");
-                Parameter? parameter = ReinforcementCoeffParameterHelper.FindParameter(element, write.ParameterName);
-                if (parameter == null || parameter.IsReadOnly ||
-                    (parameter.StorageType != StorageType.Double && parameter.StorageType != StorageType.String) ||
-                    !ReinforcementCoeffMath.IsFinite(write.Value))
-                    throw new InvalidOperationException($"Id {element.Id.GetValue()}: параметр «{write.ParameterName}» отсутствует, недоступен для записи или имеет неподходящий тип. Ничего не записано.");
-                targets.Add((parameter, write));
-            }
+            int writtenCount = 0;
+            int skippedCount = 0;
 
             using (Transaction transaction = new Transaction(doc, ReinforcementCoeffConstants.TransactionName))
             {
                 transaction.Start();
-                var options = transaction.GetFailureHandlingOptions();
-                options.SetFailuresPreprocessor(new RollBackOnError());
-                options.SetClearAfterRollback(true);
-                transaction.SetFailureHandlingOptions(options);
-                foreach (var target in targets)
+
+                foreach (ReinforcementCoeffParameterWrite write in writes)
                 {
-                    if (!ReinforcementCoeffParameterHelper.TrySetDoubleValue(target.Parameter, target.Write.Value))
-                        throw new InvalidOperationException($"Не удалось записать «{target.Write.ParameterName}». Изменения отменены.");
+                    Element? element = doc.GetElement(write.ElementId);
+                    if (element == null)
+                    {
+                        skippedCount++;
+                        continue;
+                    }
+
+                    Parameter? parameter = ReinforcementCoeffParameterHelper.FindParameter(
+                        element,
+                        write.ParameterName);
+                    if (ReinforcementCoeffParameterHelper.TrySetDoubleValue(parameter, write.Value))
+                    {
+                        writtenCount++;
+                    }
+                    else
+                    {
+                        skippedCount++;
+                    }
                 }
-                if (transaction.Commit() != TransactionStatus.Committed)
-                    throw new InvalidOperationException("Транзакция не завершена. Значения не записаны.");
+
+                transaction.Commit();
             }
+
             return new ReinforcementCoeffWriteResult
             {
-                WrittenCount = targets.Count,
-                SummaryText = $"Записано значений: {targets.Count}. Для следующей записи выполните новый расчёт.",
+                WrittenCount = writtenCount,
+                SkippedCount = skippedCount,
+                SummaryText = $"Записано значений: {writtenCount}. Пропущено: {skippedCount}.",
             };
-        }
-
-        private sealed class RollBackOnError : IFailuresPreprocessor
-        {
-            public FailureProcessingResult PreprocessFailures(FailuresAccessor accessor) =>
-                accessor.GetFailureMessages().Any(f => f.GetSeverity() == FailureSeverity.Error)
-                    ? FailureProcessingResult.ProceedWithRollBack : FailureProcessingResult.Continue;
         }
 
         /// <summary>
@@ -182,28 +177,15 @@ namespace SP_Addin.ReinforcementCoeff.Services
                 if (ReinforcementCoeffConcreteVolumeHelper.TryGetConcreteVolumeCubicMeters(
                         doc,
                         element,
-                        out double volume, out string volumeError))
+                        out double volume))
                 {
                     concreteVolumes.Add((element, volume));
                 }
-                else if (!string.IsNullOrEmpty(volumeError))
-                    result.Errors.Add($"Бетон Id {element.Id.GetValue()}: {volumeError}");
             }
 
             List<Element> concreteElements = concreteVolumes.Select(pair => pair.Element).ToList();
 
             List<Element> rebarElements = groupRebarElements.Where(e => !IsFrameElement(e)).ToList();
-
-            if ((group.IsElevationGrouping && group.GroupingKey == ReinforcementCoeffConstants.NoElevationGroupKey) ||
-                string.IsNullOrWhiteSpace(group.GroupingKey))
-            {
-                result.ConcreteElementIds = ToElementIdList(groupConcreteElements);
-                result.RebarElementIds = ToElementIdList(rebarElements);
-                result.ConcreteContributions = BuildConcreteContributions(concreteVolumes);
-                result.RebarContributions = rebarElements.Select(e => CreateRebarContribution(doc, e, 0)).ToList();
-                result.Status = "Не определена группировка/отметка. Расход не рассчитан, запись запрещена.";
-                return new GroupProcessResult(result, pendingWrites);
-            }
 
             if (string.IsNullOrEmpty(result.GroupingDisplay))
             {
@@ -223,18 +205,17 @@ namespace SP_Addin.ReinforcementCoeff.Services
 
             if (concreteElements.Count == 0)
             {
-                result.Status = "Не найдены бетонные элементы группы. " + string.Join("; ", result.Errors);
-                result.ConcreteElementIds = ToElementIdList(groupConcreteElements);
+                result.Status = "Не найдены бетонные элементы группы.";
                 return new GroupProcessResult(result, pendingWrites);
             }
 
-            // Знаменатель — сумма объёмов материалов с кодом «Мтрл.КодМатериала» на 20… (м³).
+            // Знаменатель — сумма значений «Объем» выбранных элементов в м³, как в графе Dynamo.
             double totalVolume = concreteVolumes.Sum(pair => pair.Volume);
 
             result.ConcreteVolume = totalVolume;
             if (totalVolume <= 0)
             {
-                result.Status = "Суммарный объём бетона равен нулю (нет материалов с кодом, начинающимся на 20).";
+                result.Status = "Суммарный объём выбранных элементов равен нулю.";
                 return new GroupProcessResult(result, pendingWrites);
             }
 
@@ -243,13 +224,8 @@ namespace SP_Addin.ReinforcementCoeff.Services
             var rebarContributions = new List<ReinforcementCoeffElementContribution>();
             foreach (Element element in rebarElements)
             {
-                if (!TryCalculateRebarMass(element, out double massPerElement, out string massError))
+                if (!TryCalculateRebarMass(element, out double massPerElement))
                 {
-                    result.InvalidRebarElementCount++;
-                    result.Errors.Add($"Арматура Id {element.Id.GetValue()}: {massError}");
-                    var invalid = CreateRebarContribution(doc, element, 0);
-                    invalid.DisplayName += " [Ошибка: " + massError + "]";
-                    rebarContributions.Add(invalid);
                     continue;
                 }
 
@@ -258,7 +234,6 @@ namespace SP_Addin.ReinforcementCoeff.Services
                 pendingWrites.Add(new ReinforcementCoeffParameterWrite
                 {
                     ElementId = element.Id,
-                    ElementUniqueId = element.UniqueId,
                     ParameterName = ReinforcementCoeffConstants.ParamMassPerElement,
                     Value = massPerElement,
                 });
@@ -267,25 +242,8 @@ namespace SP_Addin.ReinforcementCoeff.Services
             result.RebarContributions = rebarContributions
                 .OrderByDescending(item => item.Contribution)
                 .ToList();
-            result.RebarElementCount = rebarElements.Count - result.InvalidRebarElementCount;
             result.RebarMass = totalRebarMass;
-            if (rebarElements.Count == 0)
-                result.Errors.Add("Не найдена подходящая арматура. Нулевой расход автоматически не записывается.");
-            if (!ReinforcementCoeffMath.IsFinite(totalRebarMass) || !ReinforcementCoeffMath.IsFinite(totalVolume))
-                result.Errors.Add("Суммарная масса или объём вне допустимого диапазона.");
-            if (result.Errors.Count > 0)
-            {
-                result.Status = "Неполный расчёт; запись запрещена. " + string.Join("; ", result.Errors);
-                pendingWrites.Clear();
-                return new GroupProcessResult(result, pendingWrites);
-            }
             double coefficient = totalRebarMass / totalVolume;
-            if (!ReinforcementCoeffMath.IsFinite(coefficient))
-            {
-                result.Status = "Недопустимый расход; запись запрещена.";
-                pendingWrites.Clear();
-                return new GroupProcessResult(result, pendingWrites);
-            }
             result.Coefficient = coefficient;
 
             foreach (Element element in concreteElements)
@@ -293,7 +251,6 @@ namespace SP_Addin.ReinforcementCoeff.Services
                 pendingWrites.Add(new ReinforcementCoeffParameterWrite
                 {
                     ElementId = element.Id,
-                    ElementUniqueId = element.UniqueId,
                     ParameterName = ReinforcementCoeffConstants.ParamAvgConsumption,
                     Value = coefficient,
                 });
@@ -442,55 +399,44 @@ namespace SP_Addin.ReinforcementCoeff.Services
         /// масса = RNF.Масса элемента × qty × RNF.Количество сборок_число,
         /// где qty = Кол-во × Длина пм при типе массы 1, иначе только Кол-во.
         /// </summary>
-        private static bool TryCalculateRebarMass(Element element, out double mass, out string error)
+        private static bool TryCalculateRebarMass(Element element, out double massPerElement)
         {
-            mass = 0;
-            error = string.Empty;
+            massPerElement = 0;
             if (!ReinforcementCoeffParameterHelper.TryReadDoubleValue(element,
-                    ReinforcementCoeffConstants.ParamRebarMass, out double unitMass))
-            {
-                error = "Не читается RNF.Масса элемента.";
+                    ReinforcementCoeffConstants.ParamRebarMass, out double barMass) ||
+                !ReinforcementCoeffParameterHelper.TryReadIntValue(element,
+                    ReinforcementCoeffConstants.ParamElementCount, out int elementCount) ||
+                !ReinforcementCoeffParameterHelper.TryReadDoubleValue(element,
+                    ReinforcementCoeffConstants.ParamAssemblyCount, out double assemblies))
                 return false;
-            }
-            if (!ReinforcementCoeffParameterHelper.TryReadIntValue(element,
-                    ReinforcementCoeffConstants.ParamElementCount, out int count))
-            {
-                error = "Не читается целое RNF.Количество элементов.";
-                return false;
-            }
-            if (!ReinforcementCoeffParameterHelper.TryReadIntValue(element,
+
+            // В графе RNF.Тип массы читается через Element.ElementType.
+            Element? type = element.Document.GetElement(element.GetTypeId());
+            if (type == null || !ReinforcementCoeffParameterHelper.TryReadIntValue(type,
                     ReinforcementCoeffConstants.ParamMassType, out int massType))
             {
-                error = "Не читается RNF.Тип массы.";
-                return false;
+                if (!ReinforcementCoeffParameterHelper.TryReadIntValue(element,
+                        ReinforcementCoeffConstants.ParamMassType, out massType))
+                    return false;
+            }
+            double? length = null;
+            if (ReinforcementCoeffParameterHelper.TryReadDoubleValue(element,
+                    ReinforcementCoeffConstants.ParamLengthPm, out double lengthValue))
+            {
+                Parameter? lengthParameter = ReinforcementCoeffParameterHelper.FindParameter(element,
+                    ReinforcementCoeffConstants.ParamLengthPm);
+                length = lengthParameter?.StorageType == StorageType.Double &&
+                    lengthParameter.Definition.GetDataType() == SpecTypeId.Length
+                        ? UnitUtils.ConvertFromInternalUnits(lengthValue, UnitTypeId.Meters) : lengthValue;
             }
             Parameter? massParameter = ReinforcementCoeffParameterHelper.FindParameter(element,
                 ReinforcementCoeffConstants.ParamRebarMass);
             if (massParameter?.StorageType == StorageType.Double &&
                 massParameter.Definition.GetDataType() == SpecTypeId.MassPerUnitLength)
-                unitMass = UnitUtils.ConvertFromInternalUnits(unitMass, UnitTypeId.KilogramsPerMeter);
-            double? length = null;
-            if (massType == 1 && ReinforcementCoeffParameterHelper.TryReadLengthMeters(element,
-                    ReinforcementCoeffConstants.ParamLengthPm, out double meters))
-                length = meters;
+                barMass = UnitUtils.ConvertFromInternalUnits(barMass, UnitTypeId.KilogramsPerMeter);
 
-            double? assemblies = null;
-            Parameter? assemblyParameter = ReinforcementCoeffParameterHelper.FindParameter(element,
-                ReinforcementCoeffConstants.ParamAssemblyCount);
-            if (assemblyParameter != null && assemblyParameter.HasValue &&
-                !string.IsNullOrWhiteSpace(ReinforcementCoeffParameterHelper.ReadStringValue(element,
-                    ReinforcementCoeffConstants.ParamAssemblyCount)))
-            {
-                if (!ReinforcementCoeffParameterHelper.TryReadDoubleValue(element,
-                        ReinforcementCoeffConstants.ParamAssemblyCount, out double value))
-                {
-                    error = "Не читается RNF.Количество сборок_число.";
-                    return false;
-                }
-                assemblies = value;
-            }
-            return ReinforcementCoeffMath.TryCalculateMass(unitMass, count, massType, length, assemblies,
-                out mass, out error);
+            massPerElement = DynamoCalculation.CalculateMass(barMass, elementCount, massType, length, assemblies);
+            return !double.IsNaN(massPerElement) && !double.IsInfinity(massPerElement);
         }
 
         /// <summary>
@@ -504,15 +450,65 @@ namespace SP_Addin.ReinforcementCoeff.Services
             IReadOnlyList<ElementGroupEntry> concreteEntries,
             IReadOnlyList<ElementGroupEntry> rebarEntries)
         {
-            // В отчёте видны также группы только с арматурой и ошибками исходных данных.
-            return concreteEntries.Concat(rebarEntries)
-                .Select(e => (GroupingValue: e.GroupingKey, KitName: e.Kit))
-                .Distinct(GroupingValueKitPairComparer.Instance)
-                .OrderBy(p => p.KitName, StringComparer.OrdinalIgnoreCase)
-                .ThenBy(p => p.GroupingValue, StringComparer.OrdinalIgnoreCase)
-                .Select(p => context.GroupingMode == ReinforcementCoeffGroupingMode.ByGroupingValue
-                    ? GroupDefinition.ForParameterGrouping(p.GroupingValue, p.KitName)
-                    : GroupDefinition.ForElevationAndKit(p.GroupingValue, p.KitName))
+            if (context.GroupingMode == ReinforcementCoeffGroupingMode.ByGroupingValue)
+            {
+                string parameterName = context.GroupingParameterName?.Trim() ?? string.Empty;
+                if (string.IsNullOrEmpty(parameterName))
+                {
+                    return Array.Empty<GroupDefinition>();
+                }
+
+                var concreteBackedPairs = new HashSet<(string GroupingValue, string KitName)>(
+                    GroupingValueKitPairComparer.Instance);
+
+                foreach (ElementGroupEntry entry in concreteEntries)
+                {
+                    if (!ReinforcementCoeffConcreteVolumeHelper.IsQualifyingConcreteElement(doc, entry.Element))
+                    {
+                        continue;
+                    }
+
+                    concreteBackedPairs.Add((entry.GroupingKey, entry.Kit));
+                }
+
+                if (concreteBackedPairs.Count == 0)
+                {
+                    return Array.Empty<GroupDefinition>();
+                }
+
+                return concreteBackedPairs
+                    .OrderBy(pair => pair.GroupingValue, StringComparer.OrdinalIgnoreCase)
+                    .Select(pair => GroupDefinition.ForParameterGrouping(pair.GroupingValue, pair.KitName))
+                    .ToList();
+            }
+
+            var elevationPairs = new HashSet<(string ElevationKey, string KitName)>(
+                ElevationKitPairComparer.Instance);
+
+            foreach (ElementGroupEntry entry in concreteEntries)
+            {
+                if (!ReinforcementCoeffConcreteVolumeHelper.IsQualifyingConcreteElement(doc, entry.Element))
+                {
+                    continue;
+                }
+
+                elevationPairs.Add((entry.GroupingKey, entry.Kit));
+            }
+
+            foreach (ElementGroupEntry entry in rebarEntries)
+            {
+                elevationPairs.Add((entry.GroupingKey, entry.Kit));
+            }
+
+            if (elevationPairs.Count == 0)
+            {
+                return Array.Empty<GroupDefinition>();
+            }
+
+            return elevationPairs
+                .OrderBy(pair => pair.ElevationKey, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(pair => pair.KitName, StringComparer.OrdinalIgnoreCase)
+                .Select(pair => GroupDefinition.ForElevationAndKit(pair.ElevationKey, pair.KitName))
                 .ToList();
         }
 
@@ -533,7 +529,7 @@ namespace SP_Addin.ReinforcementCoeff.Services
             string? value = ReinforcementCoeffParameterHelper.ReadStringValue(element, parameterName);
             if (!string.IsNullOrWhiteSpace(value))
             {
-                return value!.Trim();
+                return value.Trim();
             }
 
             return ReinforcementCoeffParameterHelper.ReadDisplayTextValue(element, parameterName)?.Trim() ??
@@ -633,6 +629,11 @@ namespace SP_Addin.ReinforcementCoeff.Services
                 string groupingKey = byGroupingValue
                     ? ReadGroupingParameterValue(element, parameterName)
                     : ElevationGroupingHelper.GetElementElevationGroupKey(element);
+                if (string.IsNullOrEmpty(groupingKey))
+                {
+                    continue;
+                }
+
                 entries.Add(new ElementGroupEntry(element, kit, groupingKey));
             }
 
@@ -669,6 +670,11 @@ namespace SP_Addin.ReinforcementCoeff.Services
                 string groupingKey = byGroupingValue
                     ? ReadGroupingParameterValue(element, parameterName)
                     : ElevationGroupingHelper.GetElementElevationGroupKey(element);
+                if (string.IsNullOrEmpty(groupingKey))
+                {
+                    continue;
+                }
+
                 entries.Add(new ElementGroupEntry(element, kit, groupingKey));
             }
 
@@ -708,7 +714,7 @@ namespace SP_Addin.ReinforcementCoeff.Services
         }
 
         /// <summary>
-        /// Базовые фильтры арматуры: учёт в спецификации и заполненная RNF.Марка конструкции.
+        /// Базовый фильтр арматуры из Dynamo: учёт в спецификации.
         /// </summary>
         private static bool MatchesRebarBaseFilters(Element element)
         {
@@ -721,7 +727,8 @@ namespace SP_Addin.ReinforcementCoeff.Services
                 return false;
             }
 
-            return HasNonEmptyParameterValue(element, ReinforcementCoeffConstants.ParamRebarStructureMark);
+            // В режиме по параметру Dynamo не требует RNF.Марка конструкции.
+            return true;
         }
 
         /// <summary>
@@ -804,33 +811,10 @@ namespace SP_Addin.ReinforcementCoeff.Services
         /// </summary>
         private static bool IsFrameElement(Element element)
         {
-            if (element is FamilyInstance familyInstance)
-            {
-                Element? symbol = familyInstance.Symbol;
-                if (symbol != null)
-                {
-                    string keyMark = ReinforcementCoeffParameterHelper.ReadStringValue(
-                                         symbol,
-                                         ReinforcementCoeffConstants.ParamKeyMark) ??
-                                     string.Empty;
-                    if (string.Equals(
-                            keyMark,
-                            ReinforcementCoeffConstants.FrameMarkValue,
-                            StringComparison.OrdinalIgnoreCase))
-                    {
-                        return true;
-                    }
-                }
-            }
-
-            string instanceKeyMark = ReinforcementCoeffParameterHelper.ReadStringValue(
-                                         element,
-                                         ReinforcementCoeffConstants.ParamKeyMark) ??
-                                     string.Empty;
-            return string.Equals(
-                instanceKeyMark,
-                ReinforcementCoeffConstants.FrameMarkValue,
-                StringComparison.OrdinalIgnoreCase);
+            Element? type = element.Document.GetElement(element.GetTypeId());
+            string? keyMark = type == null ? null : ReinforcementCoeffParameterHelper.ReadStringValue(
+                type, ReinforcementCoeffConstants.ParamKeyMark);
+            return string.Equals(keyMark, ReinforcementCoeffConstants.FrameMarkValue, StringComparison.Ordinal);
         }
 
         /// <summary>Описание расчётной группы: комплект, ключ группировки и текст для отчёта.</summary>
@@ -844,7 +828,6 @@ namespace SP_Addin.ReinforcementCoeff.Services
             }
 
             public string KitName { get; }
-            public bool IsElevationGrouping { get; private set; }
 
             /// <summary>Ключ для сопоставления с элементами (сырое значение, не текст отчёта).</summary>
             public string GroupingKey { get; }
@@ -852,7 +835,7 @@ namespace SP_Addin.ReinforcementCoeff.Services
             public string GroupingDisplay { get; }
 
             public static GroupDefinition ForParameterGrouping(string groupingValue, string kitName) =>
-                new GroupDefinition(kitName, groupingValue, string.IsNullOrWhiteSpace(groupingValue) ? "(не заполнено)" : groupingValue);
+                new GroupDefinition(kitName, groupingValue, groupingValue);
 
             public static GroupDefinition ForElevationAndKit(string elevationKey, string kitName)
             {
@@ -864,8 +847,7 @@ namespace SP_Addin.ReinforcementCoeff.Services
                 return new GroupDefinition(
                     kitName,
                     elevationKey,
-                    hasElevation ? elevationKey : ReinforcementCoeffConstants.NoElevationGroupKey)
-                    { IsElevationGrouping = true };
+                    hasElevation ? elevationKey : string.Empty);
             }
         }
 

@@ -26,7 +26,6 @@
             </ResourceDictionary.MergedDictionaries>
 
             <BooleanToVisibilityConverter x:Key="BoolToVis"/>
-            <local:ReportWidthConverter x:Key="ReportWidth"/>
 
             <Style TargetType="ScrollBar" BasedOn="{StaticResource IdsModernScrollBarStyle}"/>
 
@@ -96,7 +95,6 @@
             <DataTemplate x:Key="ReportRowItemTemplate">
                 <Border BorderBrush="#FFE1E7EB" BorderThickness="0,0,0,1" Padding="8,6" HorizontalAlignment="Stretch" VerticalAlignment="Top">
                     <Grid MinWidth="{x:Static local:ReinforcementCoeffReportLayout.TableMinWidth}"
-                          Width="{Binding ViewportWidth, RelativeSource={RelativeSource AncestorType=ScrollViewer}, Converter={StaticResource ReportWidth}}"
                           HorizontalAlignment="Stretch">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="{x:Static local:ReinforcementCoeffReportLayout.ColKitWidth}" MinWidth="{x:Static local:ReinforcementCoeffReportLayout.ColKitMinWidth}"/>

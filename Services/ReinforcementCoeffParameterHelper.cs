@@ -186,14 +186,14 @@ namespace SP_Addin.ReinforcementCoeff.Services
 
             if (parameter.StorageType == StorageType.String)
             {
-                string? text = parameter.AsString()?.Trim();
+                string text = parameter.AsString()?.Trim();
                 if (string.IsNullOrEmpty(text))
                 {
                     return false;
                 }
 
                 return double.TryParse(
-                    text!.Replace(',', '.'),
+                    text.Replace(',', '.'),
                     NumberStyles.Any,
                     CultureInfo.InvariantCulture,
                     out value);
@@ -219,10 +219,7 @@ namespace SP_Addin.ReinforcementCoeff.Services
 
             if (parameter.StorageType == StorageType.Double)
             {
-                double raw = parameter.AsDouble();
-                if (!ReinforcementCoeffMath.IsFinite(raw) || raw < int.MinValue || raw > int.MaxValue || raw != Math.Truncate(raw))
-                    return false;
-                value = (int)raw;
+                value = (int)Math.Round(parameter.AsDouble());
                 return true;
             }
 
@@ -236,20 +233,10 @@ namespace SP_Addin.ReinforcementCoeff.Services
             return false;
         }
 
-        /// <summary>Параметр «Длина» хранится в футах; RNF-параметр «Число» уже задаётся в метрах.</summary>
-        public static bool TryReadLengthMeters(Element element, string name, out double meters)
-        {
-            if (!TryReadDoubleValue(element, name, out meters)) return false;
-            Parameter? parameter = FindParameter(element, name);
-            if (parameter?.StorageType == StorageType.Double && parameter.Definition.GetDataType() == SpecTypeId.Length)
-                meters = UnitUtils.ConvertFromInternalUnits(meters, UnitTypeId.Meters);
-            return ReinforcementCoeffMath.IsFinite(meters);
-        }
-
-        /// <summary>Записывает число без неявного округления до целого.</summary>
+        /// <summary>Записывает число с подбором типа хранения целевого параметра.</summary>
         public static bool TrySetDoubleValue(Parameter parameter, double value)
         {
-            if (parameter == null || parameter.IsReadOnly || !ReinforcementCoeffMath.IsFinite(value))
+            if (parameter == null || parameter.IsReadOnly)
             {
                 return false;
             }
@@ -259,13 +246,14 @@ namespace SP_Addin.ReinforcementCoeff.Services
                 switch (parameter.StorageType)
                 {
                     case StorageType.Double:
-                        ForgeTypeId spec = parameter.Definition.GetDataType();
-                        if (spec == SpecTypeId.MassDensity)
-                            value = UnitUtils.ConvertToInternalUnits(value, UnitTypeId.KilogramsPerCubicMeter);
-                        return parameter.AsDouble() == value || parameter.Set(value);
+                        parameter.Set(value);
+                        return true;
+                    case StorageType.Integer:
+                        parameter.Set((int)Math.Round(value));
+                        return true;
                     case StorageType.String:
-                        string text = value.ToString("0.########", CultureInfo.InvariantCulture);
-                        return parameter.AsString() == text || parameter.Set(text);
+                        parameter.Set(value.ToString("0.########", CultureInfo.InvariantCulture));
+                        return true;
                     default:
                         return false;
                 }

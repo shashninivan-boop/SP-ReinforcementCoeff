@@ -55,7 +55,7 @@ namespace SP_Addin.ReinforcementCoeff
                 };
 
                 _openView = view;
-                view.Closed += (_, __) => { viewModel.Dispose(); _openView = null; };
+                view.Closed += (_, __) => _openView = null;
                 view.Show();
 
                 return Result.Succeeded;
