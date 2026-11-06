@@ -41,9 +41,9 @@ namespace SP_Addin.ReinforcementCoeff
         /// <summary>Арматура должна участвовать в спецификации (значение true/1).</summary>
         public const string ParamSpecAccount = "RNF.Учёт в спецификации";
 
-        /// <summary>Типы с классом арматуры 75 не участвуют в расчёте массы.</summary>
+        /// <summary>Типы с классом арматуры 75 или 61 не участвуют в расчёте массы.</summary>
         public const string ParamRebarClass = "SP_Класс арматуры";
-        public const double ExcludedRebarClass = 75;
+        public static readonly double[] ExcludedRebarClasses = { 75, 61 };
 
         /// <summary>Тип массы: 1 — погонный метраж (кол-во × длина пм).</summary>
         public const string ParamMassType = "RNF.Тип массы";

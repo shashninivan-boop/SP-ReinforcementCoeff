@@ -727,11 +727,11 @@ namespace SP_Addin.ReinforcementCoeff.Services
                 return false;
             }
 
-            // Класс проверяем только у типа. Не округляем: 74,6 и 75,4 не равны 75.
+            // Класс проверяем только у типа, без округления до исключаемых значений.
             Element? type = element.Document.GetElement(element.GetTypeId());
             if (type != null && ReinforcementCoeffParameterHelper.TryReadDoubleValue(
                     type, ReinforcementCoeffConstants.ParamRebarClass, out double rebarClass) &&
-                rebarClass == ReinforcementCoeffConstants.ExcludedRebarClass)
+                ReinforcementCoeffConstants.ExcludedRebarClasses.Contains(rebarClass))
             {
                 return false;
             }
