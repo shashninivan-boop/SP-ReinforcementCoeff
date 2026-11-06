@@ -727,6 +727,15 @@ namespace SP_Addin.ReinforcementCoeff.Services
                 return false;
             }
 
+            // Класс проверяем только у типа. Не округляем: 74,6 и 75,4 не равны 75.
+            Element? type = element.Document.GetElement(element.GetTypeId());
+            if (type != null && ReinforcementCoeffParameterHelper.TryReadDoubleValue(
+                    type, ReinforcementCoeffConstants.ParamRebarClass, out double rebarClass) &&
+                rebarClass == ReinforcementCoeffConstants.ExcludedRebarClass)
+            {
+                return false;
+            }
+
             // В режиме по параметру Dynamo не требует RNF.Марка конструкции.
             return true;
         }
