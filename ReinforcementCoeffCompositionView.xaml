@@ -1,0 +1,265 @@
+<Window x:Class="SP_Addin.ReinforcementCoeff.ReinforcementCoeffCompositionView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:local="clr-namespace:SP_Addin.ReinforcementCoeff"
+        xmlns:styles="clr-namespace:SP_Addin.Styles"
+        mc:Ignorable="d"
+        Title="Состав группы"
+        Width="720"
+        Height="560"
+        MinWidth="560"
+        MinHeight="420"
+        WindowStyle="None"
+        ResizeMode="CanResize"
+        AllowsTransparency="True"
+        WindowStartupLocation="CenterOwner"
+        Background="Transparent"
+        FontFamily="{DynamicResource SpFont.Ui}">
+
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="pack://application:,,,/SP_Addin;component/Styles/SpSettingsTheme.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+
+            <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+
+            <Style TargetType="ScrollBar" BasedOn="{StaticResource SpSettingsScrollBar}"/>
+
+            <Style x:Key="CompositionRowButton" TargetType="Button" BasedOn="{StaticResource SpSettingsSecondaryButton}">
+                <Setter Property="Height" Value="22"/>
+                <Setter Property="MinWidth" Value="0"/>
+                <Setter Property="Width" Value="22"/>
+                <Setter Property="Padding" Value="0"/>
+                <Setter Property="FontSize" Value="11"/>
+                <Setter Property="VerticalAlignment" Value="Center"/>
+            </Style>
+
+            <Style x:Key="CompositionTabButton" TargetType="Button" BasedOn="{StaticResource SpSettingsSecondaryButton}">
+                <Setter Property="Height" Value="28"/>
+                <Setter Property="MinWidth" Value="100"/>
+                <Setter Property="Padding" Value="12,0"/>
+                <Setter Property="Margin" Value="0,0,8,0"/>
+            </Style>
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <Border Style="{StaticResource SpSettingsChromeOuter}">
+        <Border x:Name="ChromeRoot" Style="{StaticResource SpSettingsChrome}" SizeChanged="ChromeRoot_SizeChanged">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <Border Grid.Row="0" Style="{StaticResource SpSettingsHeader}"
+                        MouseLeftButtonDown="Header_MouseLeftButtonDown">
+                    <Grid Margin="{StaticResource SpSpace.HeaderInset}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Состав группы"
+                                   Style="{StaticResource SpSettingsHeaderTitle}"
+                                   FontFamily="Arial" FontSize="15.5" FontWeight="SemiBold"/>
+                        <styles:SpSettingsCaptionButtons Grid.Column="1" VerticalAlignment="Center"/>
+                        <Button Grid.Column="2" x:Name="HeaderCloseButton"
+                                Style="{StaticResource SpSettingsHeaderClose}"
+                                VerticalAlignment="Center" Click="CloseButton_Click"
+                                AutomationProperties.Name="Закрыть"/>
+                    </Grid>
+                </Border>
+
+                <Border Grid.Row="1" Margin="14,8,14,0" Style="{StaticResource SpSettingsToolBar}" Padding="10,8">
+                    <StackPanel>
+                        <TextBlock Text="{Binding TitleText}"
+                                   Style="{StaticResource SpSettingsBodyText}"
+                                   FontWeight="SemiBold"
+                                   TextWrapping="Wrap"/>
+                        <TextBlock Margin="0,4,0,0"
+                                   Style="{StaticResource SpSettingsMutedText}"
+                                   Text="{Binding ConcreteSummaryText}"/>
+                        <TextBlock Margin="0,2,0,0"
+                                   Style="{StaticResource SpSettingsMutedText}"
+                                   Text="{Binding RebarSummaryText}"/>
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Row="2" Margin="14,8,14,0" Style="{StaticResource SpSettingsToolBar}" Padding="8">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
+                            <Button Content="Бетон"
+                                    Style="{StaticResource CompositionTabButton}"
+                                    Command="{Binding ShowConcreteTabCommand}"
+                                    ToolTip="Состав объёма бетона группы"/>
+                            <Button Content="Арматура по видам"
+                                    Style="{StaticResource CompositionTabButton}"
+                                    Command="{Binding ShowRebarTabCommand}"
+                                    ToolTip="Состав массы арматуры, сгруппированный по видам размещения"/>
+                        </StackPanel>
+
+                        <ScrollViewer Grid.Row="1"
+                                      VerticalScrollBarVisibility="Auto"
+                                      HorizontalScrollBarVisibility="Disabled"
+                                      Visibility="{Binding IsConcreteTabSelected, Converter={StaticResource BoolToVis}}">
+                            <ItemsControl ItemsSource="{Binding ConcreteItems}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border BorderBrush="#FFE1E7EB" BorderThickness="0,0,0,1" Padding="4,6">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="100"/>
+                                                    <ColumnDefinition Width="72"/>
+                                                    <ColumnDefinition Width="28"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0"
+                                                           Text="{Binding DisplayName}"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           VerticalAlignment="Center"
+                                                           ToolTip="{Binding DisplayName}"/>
+                                                <TextBlock Grid.Column="1"
+                                                           Text="{Binding ContributionDisplay}"
+                                                           VerticalAlignment="Center"
+                                                           Margin="8,0,0,0"/>
+                                                <TextBlock Grid.Column="2"
+                                                           Text="{Binding ElementIdDisplay}"
+                                                           VerticalAlignment="Center"
+                                                           Margin="8,0,0,0"
+                                                           Opacity="0.75"/>
+                                                <Button Grid.Column="3"
+                                                        Content="➤"
+                                                        Style="{StaticResource CompositionRowButton}"
+                                                        Command="{Binding DataContext.NavigateContributionCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                        CommandParameter="{Binding}"
+                                                        ToolTip="Выбрать элемент в модели"/>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+
+                        <ScrollViewer Grid.Row="1"
+                                      VerticalScrollBarVisibility="Auto"
+                                      HorizontalScrollBarVisibility="Disabled"
+                                      Visibility="{Binding IsRebarTabSelected, Converter={StaticResource BoolToVis}}">
+                            <StackPanel>
+                                <TextBlock Margin="0,0,0,8"
+                                           Style="{StaticResource SpSettingsMutedText}"
+                                           TextWrapping="Wrap"
+                                           Text="Ниже виды размещения узлов. «Открыть вид» активирует вид и выделяет все узлы группы на нём."/>
+                                <ItemsControl ItemsSource="{Binding RebarViewGroups}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border BorderBrush="#FFC9D4DB" BorderThickness="1" CornerRadius="4" Margin="0,0,0,8" Padding="6">
+                                                <StackPanel>
+                                                    <Grid Margin="0,0,0,4">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                            <ColumnDefinition Width="28"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Grid.Column="0"
+                                                                   Text="{Binding HeaderDisplay}"
+                                                                   FontWeight="SemiBold"
+                                                                   TextWrapping="Wrap"
+                                                                   VerticalAlignment="Center"/>
+                                                        <Button Grid.Column="1"
+                                                                Content="Открыть вид"
+                                                                Style="{StaticResource SpSettingsSecondaryButton}"
+                                                                Height="26"
+                                                                MinWidth="96"
+                                                                Padding="8,0"
+                                                                Margin="8,0,6,0"
+                                                                Command="{Binding DataContext.NavigateViewGroupCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                CommandParameter="{Binding}"
+                                                                ToolTip="Открыть этот вид и выделить все узлы группы на нём"/>
+                                                        <Button Grid.Column="2"
+                                                                Content="➤"
+                                                                Style="{StaticResource CompositionRowButton}"
+                                                                Command="{Binding DataContext.NavigateViewGroupCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                CommandParameter="{Binding}"
+                                                                ToolTip="Открыть вид и выделить все узлы группы на нём"/>
+                                                    </Grid>
+                                                    <ItemsControl ItemsSource="{Binding Items}">
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <Border BorderBrush="#FFE1E7EB" BorderThickness="0,0,0,1" Padding="8,5,4,5">
+                                                                    <Grid>
+                                                                        <Grid.ColumnDefinitions>
+                                                                            <ColumnDefinition Width="*"/>
+                                                                            <ColumnDefinition Width="88"/>
+                                                                            <ColumnDefinition Width="72"/>
+                                                                            <ColumnDefinition Width="28"/>
+                                                                        </Grid.ColumnDefinitions>
+                                                                        <TextBlock Grid.Column="0"
+                                                                                   Text="{Binding DisplayName}"
+                                                                                   TextTrimming="CharacterEllipsis"
+                                                                                   VerticalAlignment="Center"
+                                                                                   ToolTip="{Binding DisplayName}"/>
+                                                                        <TextBlock Grid.Column="1"
+                                                                                   Text="{Binding ContributionDisplay}"
+                                                                                   VerticalAlignment="Center"
+                                                                                   Margin="8,0,0,0"/>
+                                                                        <TextBlock Grid.Column="2"
+                                                                                   Text="{Binding ElementIdDisplay}"
+                                                                                   VerticalAlignment="Center"
+                                                                                   Margin="8,0,0,0"
+                                                                                   Opacity="0.75"/>
+                                                                        <Button Grid.Column="3"
+                                                                                Content="➤"
+                                                                                Style="{StaticResource CompositionRowButton}"
+                                                                                Command="{Binding DataContext.NavigateContributionCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                                CommandParameter="{Binding}"
+                                                                                ToolTip="Открыть вид элемента и выделить его"/>
+                                                                    </Grid>
+                                                                </Border>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Grid>
+                </Border>
+
+                <Grid Grid.Row="3" Margin="14,8,14,10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Button Grid.Column="1"
+                            Style="{StaticResource SpSettingsSecondaryButton}"
+                            Content="Выделить все"
+                            Width="120"
+                            Height="28"
+                            Margin="0,0,8,0"
+                            Command="{Binding SelectAllCommand}"
+                            ToolTip="Выделить все элементы активной вкладки в модели"/>
+                    <Button Grid.Column="2"
+                            Style="{StaticResource SpSettingsSecondaryButton}"
+                            Content="Закрыть"
+                            Width="90"
+                            Height="28"
+                            Click="CloseButton_Click"/>
+                </Grid>
+            </Grid>
+        </Border>
+    </Border>
+</Window>
