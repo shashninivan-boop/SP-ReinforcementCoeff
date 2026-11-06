@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RevitAddIns>
+  <AddIn Type="Application">
+    <Name>SP Reinforcement Coefficient Test</Name>
+    <Assembly>C:\RevitAddins\ReinforcementCoeff\SP.ReinforcementCoeff.dll</Assembly>
+    <AddInId>825951C5-8DD6-4E18-91B4-016F6D28082D</AddInId>
+    <FullClassName>SP_Addin.ReinforcementCoeff.ReinforcementCoeffApplication</FullClassName>
+    <VendorId>SPTC</VendorId>
+    <VendorDescription>SP_test reinforcement consumption</VendorDescription>
+  </AddIn>
+</RevitAddIns>
