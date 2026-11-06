@@ -4,7 +4,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:local="clr-namespace:SP_Addin.ReinforcementCoeff"
-        xmlns:styles="clr-namespace:SP_Addin.Styles"
+        xmlns:styles="clr-namespace:SP_Addin.ReinforcementCoeff.Styles"
         mc:Ignorable="d"
         Title="Средний расход арматуры"
         Width="{x:Static local:ReinforcementCoeffReportLayout.DefaultWindowWidth}"
@@ -21,11 +21,12 @@
     <Window.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="pack://application:,,,/SP_Addin;component/Styles/SpSettingsTheme.xaml"/>
+                <ResourceDictionary Source="pack://application:,,,/SP.ReinforcementCoeff;component/Styles/SpSettingsTheme.xaml"/>
                 <ResourceDictionary Source="ReinforcementCoeffReportResources.xaml"/>
             </ResourceDictionary.MergedDictionaries>
 
             <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+            <local:ReportWidthConverter x:Key="ReportWidth"/>
 
             <Style TargetType="ScrollBar" BasedOn="{StaticResource IdsModernScrollBarStyle}"/>
 
@@ -95,6 +96,7 @@
             <DataTemplate x:Key="ReportRowItemTemplate">
                 <Border BorderBrush="#FFE1E7EB" BorderThickness="0,0,0,1" Padding="8,6" HorizontalAlignment="Stretch" VerticalAlignment="Top">
                     <Grid MinWidth="{x:Static local:ReinforcementCoeffReportLayout.TableMinWidth}"
+                          Width="{Binding ViewportWidth, RelativeSource={RelativeSource AncestorType=ScrollViewer}, Converter={StaticResource ReportWidth}}"
                           HorizontalAlignment="Stretch">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="{x:Static local:ReinforcementCoeffReportLayout.ColKitWidth}" MinWidth="{x:Static local:ReinforcementCoeffReportLayout.ColKitMinWidth}"/>

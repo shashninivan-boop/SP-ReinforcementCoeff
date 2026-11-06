@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RevitVersion Condition="'$(RevitVersion)' == ''">2023</RevitVersion>
+    <TargetFramework Condition="$(RevitVersion) &lt; 2025">net48</TargetFramework>
+    <TargetFramework Condition="$(RevitVersion) &gt;= 2025">net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <PlatformTarget>x64</PlatformTarget>
+    <AssemblyName>SP.ReinforcementCoeff</AssemblyName>
+    <DefineConstants>$(DefineConstants);STANDALONE</DefineConstants>
+    <DefineConstants Condition="$(RevitVersion) &gt;= 2024">$(DefineConstants);REVIT2024_OR_GREATER</DefineConstants>
+    <RevitApiPath Condition="'$(RevitApiPath)' == ''">C:\Program Files\Autodesk\Revit $(RevitVersion)</RevitApiPath>
+    <OutputPath>bin\$(Configuration)\$(RevitVersion)\</OutputPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="RevitAPI"><HintPath>$(RevitApiPath)\RevitAPI.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="RevitAPIUI"><HintPath>$(RevitApiPath)\RevitAPIUI.dll</HintPath><Private>false</Private></Reference>
+    <Compile Remove="tests\**;obj\**;bin\**"/>
+    <Page Remove="tests\**;obj\**;bin\**"/>
+    <None Update="SP.ReinforcementCoeff.addin" CopyToOutputDirectory="PreserveNewest"/>
+  </ItemGroup>
+  <Target Name="CheckRevitApi" BeforeTargets="ResolveReferences">
+    <Error Condition="!Exists('$(RevitApiPath)\RevitAPI.dll')" Text="Revit API not found. Set RevitApiPath to your Revit installation directory."/>
+  </Target>
+</Project>

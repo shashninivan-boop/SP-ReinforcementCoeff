@@ -1,5 +1,4 @@
 using System;
-using System.Text.RegularExpressions;
 using Autodesk.Revit.DB;
 using SP_Addin;
 
@@ -12,20 +11,6 @@ namespace SP_Addin.ReinforcementCoeff.Services
     /// </summary>
     internal static class ElevationGroupingHelper
     {
-        // Шаблон «отм.» / «отм » с необязательным знаком и дробной частью через точку или запятую.
-        private static readonly Regex ElevationFromTextRegex = new Regex(
-            @"отм\.?\s*([+-]?\d+(?:[.,]\d+)?)",
-            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
-
-        // RNF.Марка конструкции: «Плита перекрытия +36,950» — отметка без префикса «отм.».
-        private static readonly Regex SignedElevationInTextRegex = new Regex(
-            @"(?<![\d.,])[+-]\s*\d+(?:[.,]\d+)?",
-            RegexOptions.CultureInvariant);
-
-        private static readonly Regex ElevationMagnitudeRegex = new Regex(
-            @"^\d+(?:\.\d+)?$",
-            RegexOptions.CultureInvariant);
-
         public static bool TryExtractElevationMark(string groupingValue, out string elevationMark)
         {
             return TryExtractElevationFromText(groupingValue, out elevationMark);
@@ -49,9 +34,9 @@ namespace SP_Addin.ReinforcementCoeff.Services
                 return string.Empty;
             }
 
-            return TryExtractElevationFromText(sourceValue, out string elevationMark)
+            return TryExtractElevationFromText(sourceValue!, out string elevationMark)
                 ? elevationMark
-                : sourceValue.Trim();
+                : sourceValue!.Trim();
         }
 
         /// <summary>
@@ -79,7 +64,7 @@ namespace SP_Addin.ReinforcementCoeff.Services
             }
 
             string normalizedGrouping = concreteGroupingValue.Trim();
-            string normalizedMark = structureMark.Trim();
+            string normalizedMark = structureMark!.Trim();
 
             if (string.Equals(normalizedMark, normalizedGrouping, StringComparison.OrdinalIgnoreCase))
             {
@@ -102,51 +87,10 @@ namespace SP_Addin.ReinforcementCoeff.Services
         }
 
         /// <summary>Приводит отметку к единому виду для группировки.</summary>
-        public static string NormalizeElevationMark(string rawValue)
-        {
-            if (string.IsNullOrWhiteSpace(rawValue))
-            {
-                return string.Empty;
-            }
+        public static string NormalizeElevationMark(string rawValue) => ElevationMark.NormalizeElevationMark(rawValue);
 
-            string normalized = rawValue.Trim().Replace(',', '.');
-            bool isNegative = normalized.StartsWith("-", StringComparison.Ordinal);
-            bool hasExplicitSign = isNegative ||
-                                   normalized.StartsWith("+", StringComparison.Ordinal);
-            string magnitude = hasExplicitSign ? normalized.Substring(1) : normalized;
-
-            if (!ElevationMagnitudeRegex.IsMatch(magnitude))
-            {
-                return string.Empty;
-            }
-
-            return isNegative ? "-" + magnitude : "+" + magnitude;
-        }
-
-        private static bool TryExtractElevationFromText(string sourceValue, out string elevationMark)
-        {
-            elevationMark = string.Empty;
-            if (string.IsNullOrWhiteSpace(sourceValue))
-            {
-                return false;
-            }
-
-            Match otmetkaMatch = ElevationFromTextRegex.Match(sourceValue);
-            if (otmetkaMatch.Success)
-            {
-                elevationMark = NormalizeElevationMark(otmetkaMatch.Groups[1].Value);
-                return !string.IsNullOrEmpty(elevationMark);
-            }
-
-            Match signedMatch = SignedElevationInTextRegex.Match(sourceValue);
-            if (signedMatch.Success)
-            {
-                elevationMark = NormalizeElevationMark(signedMatch.Value.Replace(" ", string.Empty));
-                return !string.IsNullOrEmpty(elevationMark);
-            }
-
-            return false;
-        }
+        private static bool TryExtractElevationFromText(string sourceValue, out string mark) =>
+            ElevationMark.TryExtractElevationFromText(sourceValue, out mark);
 
         private static string ReadElementElevationSourceValue(Element element)
         {
@@ -161,8 +105,8 @@ namespace SP_Addin.ReinforcementCoeff.Services
                 return string.Empty;
             }
 
-            return ReinforcementCoeffParameterHelper.ReadDisplayTextValue(element, parameterName) ??
-                   ReinforcementCoeffParameterHelper.ReadStringValue(element, parameterName) ??
+            return ReinforcementCoeffParameterHelper.ReadDisplayTextValue(element, parameterName!) ??
+                   ReinforcementCoeffParameterHelper.ReadStringValue(element, parameterName!) ??
                    string.Empty;
         }
 

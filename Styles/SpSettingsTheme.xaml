@@ -1,0 +1,71 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <FontFamily x:Key="SpFont.Ui">Segoe UI</FontFamily>
+  <Thickness x:Key="SpSpace.HeaderInset">14,8</Thickness>
+  <Style x:Key="SpSettingsChromeOuter" TargetType="Border">
+    <Setter Property="Background" Value="#F5F7F9"/>
+    <Setter Property="BorderBrush" Value="#9DB4C3"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="CornerRadius" Value="8"/>
+  </Style>
+  <Style x:Key="SpSettingsChrome" TargetType="Border">
+    <Setter Property="Background" Value="#F5F7F9"/>
+    <Setter Property="CornerRadius" Value="8"/>
+  </Style>
+  <Style x:Key="SpSettingsHeader" TargetType="Border">
+    <Setter Property="Background" Value="#005E96"/>
+    <Setter Property="CornerRadius" Value="8,8,0,0"/>
+  </Style>
+  <Style x:Key="SpSettingsHeaderTitle" TargetType="TextBlock">
+    <Setter Property="FontSize" Value="16"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
+    <Setter Property="Foreground" Value="White"/>
+    <Setter Property="VerticalAlignment" Value="Center"/>
+  </Style>
+  <Style x:Key="SpSettingsSecondaryButton" TargetType="Button">
+    <Setter Property="Padding" Value="10,5"/>
+    <Setter Property="MinHeight" Value="28"/>
+    <Setter Property="Background" Value="#FFFFFF"/>
+    <Setter Property="Foreground" Value="#243746"/>
+    <Setter Property="BorderBrush" Value="#9DB4C3"/>
+    <Setter Property="Cursor" Value="Hand"/>
+  </Style>
+  <Style x:Key="SpSettingsHeaderClose" TargetType="Button" BasedOn="{StaticResource SpSettingsSecondaryButton}">
+    <Setter Property="Content" Value="×"/>
+    <Setter Property="FontSize" Value="18"/>
+    <Setter Property="Width" Value="30"/>
+  </Style>
+  <Style x:Key="SpSettingsToolBar" TargetType="Border">
+    <Setter Property="Background" Value="White"/>
+    <Setter Property="BorderBrush" Value="#D6E0E7"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="CornerRadius" Value="4"/>
+  </Style>
+  <Style x:Key="SpSettingsFooter" TargetType="Border" BasedOn="{StaticResource SpSettingsToolBar}"/>
+  <Style x:Key="SpSettingsBodyText" TargetType="TextBlock">
+    <Setter Property="FontSize" Value="13"/>
+    <Setter Property="Foreground" Value="#243746"/>
+    <Setter Property="TextWrapping" Value="Wrap"/>
+  </Style>
+  <Style x:Key="SpSettingsMutedText" TargetType="TextBlock" BasedOn="{StaticResource SpSettingsBodyText}">
+    <Setter Property="Foreground" Value="#60727F"/>
+  </Style>
+  <Style x:Key="SpSettingsTextBox" TargetType="TextBox">
+    <Setter Property="Padding" Value="6,3"/>
+    <Setter Property="MinHeight" Value="26"/>
+    <Setter Property="VerticalContentAlignment" Value="Center"/>
+  </Style>
+  <Style x:Key="SpSettingsComboBox" TargetType="ComboBox">
+    <Setter Property="MinHeight" Value="26"/>
+    <Setter Property="VerticalContentAlignment" Value="Center"/>
+  </Style>
+  <Style x:Key="SpSettingsRadioButton" TargetType="RadioButton">
+    <Setter Property="VerticalContentAlignment" Value="Center"/>
+    <Setter Property="Margin" Value="0,4"/>
+  </Style>
+  <Style x:Key="SpSettingsListView" TargetType="ListView">
+    <Setter Property="BorderThickness" Value="0"/>
+    <Setter Property="Background" Value="White"/>
+  </Style>
+  <Style x:Key="SpSettingsScrollBar" TargetType="ScrollBar"/>
+</ResourceDictionary>

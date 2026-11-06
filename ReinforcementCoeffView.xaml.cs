@@ -3,7 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
-using SP_Addin.Styles;
+using SP_Addin.ReinforcementCoeff.Styles;
 
 namespace SP_Addin.ReinforcementCoeff
 {
@@ -13,7 +13,6 @@ namespace SP_Addin.ReinforcementCoeff
 
         public ReinforcementCoeffView(ReinforcementCoeffViewModel viewModel)
         {
-            WpfResourceHelper.EnsureResourceAssembly(typeof(ReinforcementCoeffView).Assembly);
             InitializeComponent();
             DataContext = viewModel;
             Loaded += (_, __) =>

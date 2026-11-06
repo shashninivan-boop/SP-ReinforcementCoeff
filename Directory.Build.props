@@ -1,0 +1,6 @@
+<Project>
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'SP.ReinforcementCoeff'">
+    <RevitVersion Condition="'$(RevitVersion)' == ''">2023</RevitVersion>
+    <BaseIntermediateOutputPath>obj\$(RevitVersion)\</BaseIntermediateOutputPath>
+  </PropertyGroup>
+</Project>

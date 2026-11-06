@@ -40,11 +40,13 @@ namespace SP_Addin.ReinforcementCoeff
                     return;
                 }
 
+#if !STANDALONE
                 if (!RebarAutoupdateService.IsKrModel(doc))
                 {
                     error = "Инструмент доступен только в моделях КР.";
                     return;
                 }
+#endif
 
                 if (Context == null)
                 {
@@ -52,8 +54,13 @@ namespace SP_Addin.ReinforcementCoeff
                     return;
                 }
 
-                var service = new ReinforcementCoeffService();
-                result = service.Run(doc, Context);
+                var snapshot = new CalculationSnapshot(uiApp.Application, doc);
+                try
+                {
+                    result = new ReinforcementCoeffService().Run(doc, Context);
+                    result.Snapshot = snapshot;
+                }
+                catch { snapshot.Dispose(); throw; }
             }
             catch (Exception ex)
             {
@@ -75,6 +82,7 @@ namespace SP_Addin.ReinforcementCoeff
     {
         public UIApplication? UIApp { get; set; }
         public IReadOnlyList<ReinforcementCoeffParameterWrite>? PendingWrites { get; set; }
+        public CalculationSnapshot? Snapshot { get; set; }
         public Action<ReinforcementCoeffWriteResult?, string?>? OnCompleted { get; set; }
 
         public void Execute(UIApplication app)
@@ -99,11 +107,13 @@ namespace SP_Addin.ReinforcementCoeff
                     return;
                 }
 
+#if !STANDALONE
                 if (!RebarAutoupdateService.IsKrModel(doc))
                 {
                     error = "Инструмент доступен только в моделях КР.";
                     return;
                 }
+#endif
 
                 if (PendingWrites == null || PendingWrites.Count == 0)
                 {
@@ -111,8 +121,9 @@ namespace SP_Addin.ReinforcementCoeff
                     return;
                 }
 
-                var service = new ReinforcementCoeffService();
-                result = service.WriteParameters(doc, PendingWrites);
+                if (Snapshot == null) throw new InvalidOperationException("Нет действующего расчёта.");
+                Snapshot.EnsureCurrent(doc);
+                result = new ReinforcementCoeffService().WriteParameters(doc, PendingWrites);
             }
             catch (Exception ex)
             {
@@ -135,6 +146,7 @@ namespace SP_Addin.ReinforcementCoeff
     {
         public UIApplication? UIApp { get; set; }
         public List<long> ElementIdValues { get; set; } = new List<long>();
+        public CalculationSnapshot? Snapshot { get; set; }
 
         /// <summary>Id вида для активации перед выделением; null или &lt;= 0 — без смены вида.</summary>
         public long? TargetViewId { get; set; }
@@ -151,6 +163,8 @@ namespace SP_Addin.ReinforcementCoeff
                 }
 
                 Document doc = uiDoc.Document;
+                if (Snapshot == null) throw new InvalidOperationException("Нет действующего расчёта.");
+                Snapshot.EnsureCurrent(doc);
                 IList<ElementId> elementIds = ToExistingElementIds(doc, ElementIdValues);
                 if (elementIds.Count == 0)
                 {
@@ -191,7 +205,7 @@ namespace SP_Addin.ReinforcementCoeff
                 return;
             }
 
-            if (!Extensions.TryParseElementId(
+            if (!ReinforcementCoeffElementIds.TryParseElementId(
                     TargetViewId.Value.ToString(System.Globalization.CultureInfo.InvariantCulture),
                     out ElementId viewElementId))
             {
@@ -221,7 +235,7 @@ namespace SP_Addin.ReinforcementCoeff
                     continue;
                 }
 
-                if (!Extensions.TryParseElementId(
+                if (!ReinforcementCoeffElementIds.TryParseElementId(
                         rawId.ToString(System.Globalization.CultureInfo.InvariantCulture),
                         out ElementId elementId))
                 {

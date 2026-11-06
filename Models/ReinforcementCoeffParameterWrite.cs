@@ -6,6 +6,7 @@ namespace SP_Addin.ReinforcementCoeff.Models
     public sealed class ReinforcementCoeffParameterWrite
     {
         public ElementId ElementId { get; set; } = ElementId.InvalidElementId;
+        public string ElementUniqueId { get; set; } = string.Empty;
         public string ParameterName { get; set; } = string.Empty;
         public double Value { get; set; }
     }

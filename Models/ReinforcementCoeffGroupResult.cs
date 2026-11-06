@@ -26,6 +26,8 @@ namespace SP_Addin.ReinforcementCoeff.Models
         public int RebarElementCount { get; set; }
         public string Status { get; set; } = string.Empty;
         public bool IsSuccess { get; set; }
+        public List<string> Errors { get; set; } = new List<string>();
+        public int InvalidRebarElementCount { get; set; }
 
         /// <summary>Бетонные элементы группы для выбора в модели.</summary>
         public List<long> ConcreteElementIds { get; set; } = new List<long>();
@@ -49,6 +51,6 @@ namespace SP_Addin.ReinforcementCoeff.Models
         public string ConcreteVolumeDisplay =>
             ConcreteVolume.ToString("0.###", RuCulture) + " м³";
         public string RebarMassDisplay => RebarMass.ToString("0.###", RuCulture);
-        public string CoefficientDisplay => Coefficient.ToString("0.###", RuCulture);
+        public string CoefficientDisplay => IsSuccess ? Coefficient.ToString("0.###", RuCulture) : "—";
     }
 }

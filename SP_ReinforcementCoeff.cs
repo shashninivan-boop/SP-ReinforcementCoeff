@@ -20,23 +20,20 @@ namespace SP_Addin.ReinforcementCoeff
         {
             try
             {
-                if (RevitContext.UiApplication == null)
-                {
-                    RevitContext.Initialize(commandData);
-                }
-
-                Document? doc = RevitContext.Document;
+                Document? doc = commandData.Application.ActiveUIDocument?.Document;
                 if (doc == null || doc.IsFamilyDocument)
                 {
                     message = "Команда доступна только в проектном документе.";
                     return Result.Failed;
                 }
 
+#if !STANDALONE
                 if (!RebarAutoupdateService.IsKrModel(doc))
                 {
                     TaskDialog.Show("Средний расход арматуры", "Инструмент доступен только в моделях КР.");
                     return Result.Cancelled;
                 }
+#endif
 
                 // Не открываем второе окно — поднимаем существующее.
                 if (_openView != null)
@@ -58,7 +55,7 @@ namespace SP_Addin.ReinforcementCoeff
                 };
 
                 _openView = view;
-                view.Closed += (_, __) => _openView = null;
+                view.Closed += (_, __) => { viewModel.Dispose(); _openView = null; };
                 view.Show();
 
                 return Result.Succeeded;

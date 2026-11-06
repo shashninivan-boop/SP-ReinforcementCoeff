@@ -1,6 +1,6 @@
 using System.Windows;
 using System.Windows.Input;
-using SP_Addin.Styles;
+using SP_Addin.ReinforcementCoeff.Styles;
 
 namespace SP_Addin.ReinforcementCoeff
 {
@@ -9,7 +9,6 @@ namespace SP_Addin.ReinforcementCoeff
     {
         public ReinforcementCoeffCompositionView(ReinforcementCoeffCompositionViewModel viewModel)
         {
-            WpfResourceHelper.EnsureResourceAssembly(typeof(ReinforcementCoeffCompositionView).Assembly);
             InitializeComponent();
             DataContext = viewModel;
             Loaded += (_, __) =>

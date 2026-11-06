@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Linq;
-using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
+using SP_Addin.ReinforcementCoeff.Infrastructure;
+
 using SP_Addin.ReinforcementCoeff.Models;
 
 namespace SP_Addin.ReinforcementCoeff

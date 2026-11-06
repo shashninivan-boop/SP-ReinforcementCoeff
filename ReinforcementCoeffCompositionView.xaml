@@ -4,7 +4,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:local="clr-namespace:SP_Addin.ReinforcementCoeff"
-        xmlns:styles="clr-namespace:SP_Addin.Styles"
+        xmlns:styles="clr-namespace:SP_Addin.ReinforcementCoeff.Styles"
         mc:Ignorable="d"
         Title="Состав группы"
         Width="720"
@@ -21,7 +21,7 @@
     <Window.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="pack://application:,,,/SP_Addin;component/Styles/SpSettingsTheme.xaml"/>
+                <ResourceDictionary Source="pack://application:,,,/SP.ReinforcementCoeff;component/Styles/SpSettingsTheme.xaml"/>
             </ResourceDictionary.MergedDictionaries>
 
             <BooleanToVisibilityConverter x:Key="BoolToVis"/>

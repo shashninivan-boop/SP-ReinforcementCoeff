@@ -6,7 +6,7 @@ namespace SP_Addin.ReinforcementCoeff.Services
 {
     /// <summary>
     /// Объём бетона элемента: только материалы с «Мтрл.КодМатериала», начинающимся с 20, через Element.GetMaterialVolume.
-    /// Элемент исключается, если у любого материала с ненулевым объёмом нет кода бетона.
+    /// Из многоматериального элемента учитывается только бетонная часть; неизвестные материалы диагностируются.
     /// </summary>
     internal static class ReinforcementCoeffConcreteVolumeHelper
     {
@@ -16,8 +16,13 @@ namespace SP_Addin.ReinforcementCoeff.Services
         public static bool TryGetConcreteVolumeCubicMeters(
             Document doc,
             Element element,
-            out double volumeCubicMeters)
+            out double volumeCubicMeters) =>
+            TryGetConcreteVolumeCubicMeters(doc, element, out volumeCubicMeters, out _);
+
+        public static bool TryGetConcreteVolumeCubicMeters(Document doc, Element element,
+            out double volumeCubicMeters, out string error)
         {
+            error = string.Empty;
             volumeCubicMeters = 0;
             if (doc == null || element == null)
             {
@@ -53,7 +58,8 @@ namespace SP_Addin.ReinforcementCoeff.Services
                 }
                 catch (ArgumentException)
                 {
-                    continue;
+                    error = "Не удалось получить объём материала.";
+                    return false;
                 }
 
                 if (materialVolume <= 0)
@@ -63,14 +69,14 @@ namespace SP_Addin.ReinforcementCoeff.Services
 
                 hasPositiveVolume = true;
 
-                if (doc.GetElement(materialId) is not Material material
-                    || !IsConcreteMaterial(material))
+                if (doc.GetElement(materialId) is not Material material ||
+                    string.IsNullOrWhiteSpace(ReadMaterialCode(material)))
                 {
-                    volumeCubicMeters = 0;
+                    error = "У материала с положительным объёмом не заполнен Мтрл.КодМатериала.";
                     return false;
                 }
-
-                totalInternalVolume += materialVolume;
+                if (IsConcreteMaterial(material))
+                    totalInternalVolume += materialVolume;
             }
 
             if (!hasPositiveVolume || totalInternalVolume <= 0)
@@ -85,7 +91,7 @@ namespace SP_Addin.ReinforcementCoeff.Services
         internal static bool IsConcreteMaterialCode(string? materialCode)
         {
             return !string.IsNullOrWhiteSpace(materialCode)
-                && materialCode.Trim().StartsWith(
+                && materialCode!.Trim().StartsWith(
                     ReinforcementCoeffConstants.ConcreteMaterialCodePrefix,
                     StringComparison.Ordinal);
         }
